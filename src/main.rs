@@ -172,7 +172,7 @@ fn market_sell(ob: &mut Orderbook, quantity: i32) {
 }
 
 fn limit_buy(ob: &mut Orderbook, quantity: i32, price: i32) {
-    println!("Perofrming LIMIT BUY: {} @ ${}", quantity, price);
+    println!("Performing LIMIT BUY: {} @ ${}", quantity, price);
     println!();
     let mut left_to_buy: i32 = quantity;
     let mut total_value: i32 = 0;
