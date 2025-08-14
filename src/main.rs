@@ -1,6 +1,7 @@
-use std::io;
+﻿use std::io;
 use std::collections::BTreeMap;
 use std::str::SplitWhitespace;
+use std::time::SystemTime;
 
 struct Orderbook {
     // both of these maps map a price to a quantity
@@ -289,6 +290,8 @@ fn main() {
         io::stdin().read_line(&mut input_string).unwrap();
         println!();
 
+        let start_time = SystemTime::now();
+
         let mut split = input_string.split_whitespace();
         
         let command: Option<&str> = split.next();
@@ -324,9 +327,14 @@ fn main() {
                 };
             },
             _ => {
-                panic!("Unknown command.");
+                println!("Unknown command.");
             }
         };
+
+        let end_time = SystemTime::now();
+        let difference = end_time.duration_since(start_time).unwrap();
+        println!();
+        println!("Executed in {}μs", difference.as_micros());
 
         println!();
         list_orders(&ob);
