@@ -28,7 +28,7 @@ fn read_in_quantity_and_price(split: &mut SplitWhitespace<'_>, quantity: &mut i3
 
             // ensure price_num is positive
             assert!(price_num > 0, "Price must be positive.");
-                
+
             *price = Some(price_num);
         }
     };
@@ -43,6 +43,7 @@ fn gen_hashtag_loop(n: usize) -> String {
 
 fn list_orders(ob: &Orderbook) {
     println!("===============================");
+    println!();
     println!("{:<5} {:>13}", "PRICE", "QUANTITY");
     
     println!();
@@ -68,58 +69,6 @@ fn list_orders(ob: &Orderbook) {
     };
 
     println!();
-}
-
-fn market_buy(ob: &mut Orderbook, quantity: i32) {
-    println!("MARKET BUY placed: {} @ market price", quantity);
-    let mut left_to_buy: i32 = quantity;
-    let mut total_value: i32 = 0;
-    while left_to_buy > 0 {
-        let (p, q) = ob.asks.pop_first().expect("Insufficient sell volume.");
-        if q > left_to_buy {
-            // push back sell order with reduced quantity
-            ob.asks.insert(p, q-left_to_buy);
-            
-            // increase total_value
-            total_value += left_to_buy * p;
-
-            // reduce left_to_buy
-            left_to_buy = 0;
-        } else {
-            // increase total_value
-            total_value += q*p;
-
-            // reduce left_to_buy
-            left_to_buy -= q;
-        }
-    }
-    println!("Bought {} at an average price of ${:.2}", quantity, ((total_value as f32) / (quantity as f32)));
-}
-
-fn market_sell(ob: &mut Orderbook, quantity: i32) {
-    println!("MARKET SELL placed: {} @ market price", quantity);
-    let mut left_to_sell: i32 = quantity;
-    let mut total_value: i32 = 0;
-    while left_to_sell > 0 {
-        let (p, q) = ob.bids.pop_last().expect("Insufficient buy volume.");
-        if q > left_to_sell {
-            // push back buy order with reduced quantity
-            ob.bids.insert(p, q-left_to_sell);
-            
-            // increase total_value
-            total_value += left_to_sell * p;
-
-            // reduce left_to_sell
-            left_to_sell = 0;
-        } else {
-            // increase total_value
-            total_value += q*p;
-
-            // reduce left_to_sell
-            left_to_sell -= q;
-        }
-    }
-    println!("Sold {} at an average price of ${:.2}", quantity, ((total_value as f32) / (quantity as f32)));
 }
 
 fn create_buy_order(ob: &mut Orderbook, quantity: i32, price: i32) {
@@ -150,8 +99,81 @@ fn create_sell_order(ob: &mut Orderbook, quantity: i32, price: i32) {
     };
 }
 
+fn market_buy(ob: &mut Orderbook, quantity: i32) {
+    println!("Performing MARKET BUY: {} @ market price", quantity);
+    println!();
+    let mut left_to_buy: i32 = quantity;
+    let mut total_value: i32 = 0;
+    while left_to_buy > 0 {
+        let (p, q) = ob.asks.pop_first().expect("Insufficient sell volume.");
+        if q > left_to_buy {
+            // push back sell order with reduced quantity
+            ob.asks.insert(p, q-left_to_buy);
+            
+            // increase total_value
+            total_value += left_to_buy * p;
+
+            println!("Bought {} @ ${:.2}", left_to_buy, p);
+
+            // reduce left_to_buy
+            left_to_buy = 0;
+        } else {
+            // increase total_value
+            total_value += q*p;
+
+            // reduce left_to_buy
+            left_to_buy -= q;
+
+            println!("Bought {} @ ${:.2}", q, p);
+        }
+    }
+    println!();
+    if quantity > 0 {
+        println!("Bought {} at an average price of ${:.2}", quantity, ((total_value as f32) / (quantity as f32)));
+    } else {
+        println!("Bought 0");
+    };
+}
+
+fn market_sell(ob: &mut Orderbook, quantity: i32) {
+    println!("Performing MARKET SELL: {} @ market price", quantity);
+    println!();
+    let mut left_to_sell: i32 = quantity;
+    let mut total_value: i32 = 0;
+    while left_to_sell > 0 {
+        let (p, q) = ob.bids.pop_last().expect("Insufficient buy volume.");
+        if q > left_to_sell {
+            // push back buy order with reduced quantity
+            ob.bids.insert(p, q-left_to_sell);
+            
+            // increase total_value
+            total_value += left_to_sell * p;
+
+            println!("Sold {} @ ${:.2}", left_to_sell, p);
+
+            // reduce left_to_sell
+            left_to_sell = 0;
+        } else {
+            // increase total_value
+            total_value += q*p;
+
+            // reduce left_to_sell
+            left_to_sell -= q;
+
+            println!("Sold {} @ ${:.2}", q, p);
+        }
+    }
+    println!();
+    if quantity > 0 {
+        println!("Sold {} at an average price of ${:.2}", quantity, ((total_value as f32) / (quantity as f32)));
+    } else {
+        println!("Sold 0");
+    };
+}
+
 fn limit_buy(ob: &mut Orderbook, quantity: i32, price: i32) {
-    println!("LIMIT BUY placed: {} @ ${}", quantity, price);
+    println!("Perofrming LIMIT BUY: {} @ ${}", quantity, price);
+    println!();
     let mut left_to_buy: i32 = quantity;
     let mut total_value: i32 = 0;
     let mut total_quantity: i32 = 0;
@@ -176,6 +198,8 @@ fn limit_buy(ob: &mut Orderbook, quantity: i32, price: i32) {
                         total_value += left_to_buy * p;
                         total_quantity += left_to_buy;
 
+                        println!("Bought {} @ ${:.2}", left_to_buy, p);
+
                         // reduce left_to_buy
                         left_to_buy = 0;
                     } else {
@@ -185,6 +209,8 @@ fn limit_buy(ob: &mut Orderbook, quantity: i32, price: i32) {
 
                         // reduce left_to_buy
                         left_to_buy -= q;
+
+                        println!("Bought {} @ ${:.2}", q, p);
                     }
                 } else {
                     ob.asks.insert(p, q);
@@ -194,13 +220,17 @@ fn limit_buy(ob: &mut Orderbook, quantity: i32, price: i32) {
             }
         }
     }
-
     println!();
-    println!("Bought {} at an average price of ${:.2}", total_quantity, ((total_value as f32) / (total_quantity as f32)));
+    if quantity > 0 {
+        println!("Bought {} at an average price of ${:.2}", quantity, ((total_value as f32) / (total_quantity as f32)));
+    } else {
+        println!("Bought 0");
+    };
 }
 
 fn limit_sell(ob: &mut Orderbook, quantity: i32, price: i32) {
-    println!("LIMIT SELL placed: {} @ ${}", quantity, price);
+    println!("Performing LIMIT SELL: {} @ ${}", quantity, price);
+    println!();
     let mut left_to_sell: i32 = quantity;
     let mut total_value: i32 = 0;
     let mut total_quantity: i32 = 0;
@@ -225,6 +255,8 @@ fn limit_sell(ob: &mut Orderbook, quantity: i32, price: i32) {
                         total_value += left_to_sell * p;
                         total_quantity += left_to_sell;
 
+                        println!("Sold {} @ ${:.2}", left_to_sell, p);
+
                         // reduce left_to_sell
                         left_to_sell = 0;
                     } else {
@@ -234,6 +266,8 @@ fn limit_sell(ob: &mut Orderbook, quantity: i32, price: i32) {
 
                         // reduce left_to_sell
                         left_to_sell -= q;
+
+                        println!("Sold {} @ ${:.2}", q, p);
                     }
                 } else {
                     ob.bids.insert(p, q);
@@ -243,9 +277,12 @@ fn limit_sell(ob: &mut Orderbook, quantity: i32, price: i32) {
             }
         }
     }
-
     println!();
-    println!("Sold {} at an average price of ${:.2}", total_quantity, ((total_value as f32) / (total_quantity as f32)));
+    if quantity > 0 {
+        println!("Sold {} at an average price of ${:.2}", quantity, ((total_value as f32) / (total_quantity as f32)));
+    } else {
+        println!("Sold 0");
+    };
 }
 
 fn populate_orderbook(ob: &mut Orderbook) {
@@ -281,6 +318,8 @@ fn main() {
     };
 
     populate_orderbook(&mut ob);
+    println!();
+
     list_orders(&ob);
 
     while input_string.trim() != "EXIT" {
@@ -288,6 +327,10 @@ fn main() {
 
         println!("Enter a command:");
         io::stdin().read_line(&mut input_string).unwrap();
+        println!();
+
+        println!("===============================");
+
         println!();
 
         let start_time = SystemTime::now();
