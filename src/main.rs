@@ -1,11 +1,10 @@
 ﻿use std::io;
-use std::collections::BTreeMap;
 use std::str::SplitWhitespace;
 use std::time::SystemTime;
 
 pub mod orderbook;
 
-use crate::orderbook::*;
+use crate::orderbook::Orderbook;
 
 fn read_in_quantity_and_price(split: &mut SplitWhitespace<'_>, quantity: &mut i32, price: &mut Option<i32>) {
     let quantity_opt_str: Option<&str> = split.next();
@@ -37,15 +36,12 @@ fn read_in_quantity_and_price(split: &mut SplitWhitespace<'_>, quantity: &mut i3
 fn main() {
     let mut input_string = String::new();
 
-    let mut ob = Orderbook {
-        bids: BTreeMap::new(),
-        asks: BTreeMap::new(),
-    };
+    let mut ob = Orderbook::new();
 
-    populate_orderbook(&mut ob);
+    ob.populate_orderbook();
     println!();
 
-    list_orders(&ob);
+    ob.list_orders();
 
     while input_string.trim() != "EXIT" {
         input_string.clear();
@@ -73,10 +69,10 @@ fn main() {
 
                 match price_opt {
                     None => {
-                        market_buy(&mut ob, quantity);
+                        ob.market_buy(quantity);
                     },
                     Some(price) => {
-                        limit_buy(&mut ob, quantity, price);
+                        ob.limit_buy(quantity, price);
                     }
                 };
             },
@@ -87,10 +83,10 @@ fn main() {
 
                 match price_opt {
                     None => {
-                        market_sell(&mut ob, quantity);
+                        ob.market_sell(quantity);
                     },
                     Some(price) => {
-                        limit_sell(&mut ob, quantity, price);
+                        ob.limit_sell(quantity, price);
                     }
                 };
             },
@@ -105,7 +101,7 @@ fn main() {
         println!("Executed in {}μs", difference.as_micros());
 
         println!();
-        list_orders(&ob);
+        ob.list_orders();
     }
 
     println!("Program terminating.");
