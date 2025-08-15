@@ -3,6 +3,7 @@ use std::str::SplitWhitespace;
 use std::time::SystemTime;
 
 pub mod orderbook;
+pub mod order;
 
 use crate::orderbook::Orderbook;
 

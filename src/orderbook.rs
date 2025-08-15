@@ -1,9 +1,15 @@
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
+
+use crate::order::Order;
+use crate::order::OrderType;
 
 pub struct Orderbook {
     // both of these maps map a price to a quantity
-    pub bids: BTreeMap<i32, i32>,
-    pub asks: BTreeMap<i32, i32>,
+    bids: BTreeMap<i32, i32>,
+    asks: BTreeMap<i32, i32>,
+    buy_orders: BTreeMap<i32, VecDeque<Order>>,
+    sell_orders: BTreeMap<i32, VecDeque<Order>>,
 }
 
 fn gen_hashtag_loop(n: usize) -> String {
@@ -16,6 +22,8 @@ impl Orderbook {
         Orderbook {
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
+            buy_orders: BTreeMap::new(),
+            sell_orders: BTreeMap::new(),
         }
     }
    
@@ -30,16 +38,26 @@ impl Orderbook {
             for _ in 0..(5 - self.asks.len()) { println!(); };
         };
     
-        for ask in self.asks.iter().take(5).rev() {
+        for ask in self.asks.iter().take(3).rev() {
             println!("${:<4.2} {:>4} {}", ask.0, ask.1, gen_hashtag_loop((*ask.1).try_into().expect("Failed to format i32 as usize.")));
+            print!("(");
+            for order in self.sell_orders.get(ask.0).unwrap() {
+                print!("{}, ", order.size - order.filled);
+            };
+            println!(")");
         };
         println!("-------------------------------");
 
         println!("{:.2}bps", (100.0 * ((*self.asks.first_key_value().expect("One-sided order book.").0 as f32 / *self.bids.last_key_value().expect("One-sided order book.").0 as f32) - 1.0)));
 
         println!("-------------------------------");
-        for bid in self.bids.iter().rev().take(5) {
+        for bid in self.bids.iter().rev().take(3) {
             println!("${:<4.2} {:>4} {}", bid.0, bid.1, gen_hashtag_loop((*bid.1).try_into().expect("Failed to format i32 as usize.")));
+            print!("(");
+            for order in self.buy_orders.get(bid.0).unwrap() {
+                print!("{}, ", order.size - order.filled);
+            };
+            println!(")");
         };
     
         if self.bids.len() < 5 {
@@ -61,6 +79,14 @@ impl Orderbook {
                 self.bids.insert(price, quantity);
             }
         };
+        match self.buy_orders.get_mut(&price) {
+            Some(vd) => {
+                vd.push_back(Order::new(OrderType::BUY, quantity, 0, price));
+            },
+            None => {
+                self.buy_orders.insert(price, VecDeque::from([Order::new(OrderType::BUY, quantity, 0, price)]));
+            }
+        };
     }
 
     fn create_sell_order(&mut self, quantity: i32, price: i32) {
@@ -75,6 +101,30 @@ impl Orderbook {
                 self.asks.insert(price, quantity);
             }
         };
+        match self.sell_orders.get_mut(&price) {
+            Some(vd) => {
+                vd.push_back(Order::new(OrderType::SELL, quantity, 0, price));
+            },
+            None => {
+                self.sell_orders.insert(price, VecDeque::from([Order::new(OrderType::SELL, quantity, 0, price)]));
+            }
+        };
+    }
+
+    fn clear_orders_of_quantity(queue: &mut VecDeque<Order>, quantity: i32) {
+        let mut remaining = quantity;
+        while remaining > 0 {
+            let front_order = queue.front_mut().unwrap();
+            let to_fill = front_order.size - front_order.filled;
+            if remaining >= to_fill {
+                queue.pop_front();
+                remaining -= to_fill;
+                continue;
+            } else {
+                front_order.filled += remaining;
+                remaining = 0;
+            };
+        }
     }
 
     pub fn market_buy(&mut self, quantity: i32) {
@@ -91,6 +141,9 @@ impl Orderbook {
                 // increase total_value
                 total_value += left_to_buy * p;
 
+                // update orders
+                Self::clear_orders_of_quantity(self.sell_orders.get_mut(&p).unwrap(), left_to_buy);
+
                 println!("Bought {} @ ${:.2}", left_to_buy, p);
 
                 // reduce left_to_buy
@@ -101,6 +154,9 @@ impl Orderbook {
 
                 // reduce left_to_buy
                 left_to_buy -= q;
+
+                // clear orders
+                self.sell_orders.insert(p, VecDeque::new());
 
                 println!("Bought {} @ ${:.2}", q, p);
             }
@@ -127,6 +183,9 @@ impl Orderbook {
                 // increase total_value
                 total_value += left_to_sell * p;
 
+                // update orders
+                Self::clear_orders_of_quantity(self.buy_orders.get_mut(&p).unwrap(), left_to_sell);
+
                 println!("Sold {} @ ${:.2}", left_to_sell, p);
 
                 // reduce left_to_sell
@@ -137,6 +196,9 @@ impl Orderbook {
 
                 // reduce left_to_sell
                 left_to_sell -= q;
+
+                // clear orders
+                self.buy_orders.insert(p, VecDeque::new());
 
                 println!("Sold {} @ ${:.2}", q, p);
             }
@@ -176,6 +238,9 @@ impl Orderbook {
                             total_value += left_to_buy * p;
                             total_quantity += left_to_buy;
 
+                            // update orders
+                            Self::clear_orders_of_quantity(self.sell_orders.get_mut(&p).unwrap(), left_to_buy);
+
                             println!("Bought {} @ ${:.2}", left_to_buy, p);
 
                             // reduce left_to_buy
@@ -187,6 +252,9 @@ impl Orderbook {
 
                             // reduce left_to_buy
                             left_to_buy -= q;
+
+                            // clear orders
+                            self.sell_orders.insert(p, VecDeque::new());
 
                             println!("Bought {} @ ${:.2}", q, p);
                         }
@@ -233,6 +301,9 @@ impl Orderbook {
                             total_value += left_to_sell * p;
                             total_quantity += left_to_sell;
 
+                            // update orders
+                            Self::clear_orders_of_quantity(self.buy_orders.get_mut(&p).unwrap(), left_to_sell);
+
                             println!("Sold {} @ ${:.2}", left_to_sell, p);
 
                             // reduce left_to_sell
@@ -244,6 +315,9 @@ impl Orderbook {
 
                             // reduce left_to_sell
                             left_to_sell -= q;
+
+                            // clear orders
+                            self.buy_orders.insert(p, VecDeque::new());
 
                             println!("Sold {} @ ${:.2}", q, p);
                         }
